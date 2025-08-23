@@ -37,11 +37,12 @@ class PostController extends Controller
 
         $post = Post::create([
             'user_id' => $user->id,
-            'image_url' => Storage::url($path),
+            'image_url' => 'https://amora.wibook.co.tz' . Storage::url($path),
             'caption' => $request->caption,
         ]);
 
         return response()->json(['success' => true, 'post' => $post], 201);
+   
     }
 
     public function like(Post $post)
