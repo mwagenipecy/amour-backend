@@ -236,6 +236,77 @@ class UserController extends Controller
         }
     }
 
+    public function createConversation(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'user_id' => 'required|exists:users,id'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $user = Auth::user();
+            $otherUserId = $request->user_id;
+
+            // Check if user is trying to create conversation with themselves
+            if ($user->id == $otherUserId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot create conversation with yourself'
+                ], 400);
+            }
+
+            // Check if conversation already exists
+            $existingConversation = Conversation::where(function($query) use ($user, $otherUserId) {
+                $query->where('user1_id', $user->id)->where('user2_id', $otherUserId);
+            })->orWhere(function($query) use ($user, $otherUserId) {
+                $query->where('user1_id', $otherUserId)->where('user2_id', $user->id);
+            })->first();
+
+            if ($existingConversation) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Conversation already exists',
+                    'conversation' => [
+                        'id' => $existingConversation->id,
+                        'user1_id' => $existingConversation->user1_id,
+                        'user2_id' => $existingConversation->user2_id,
+                        'created_at' => $existingConversation->created_at
+                    ]
+                ]);
+            }
+
+            // Create new conversation
+            $conversation = Conversation::create([
+                'user1_id' => $user->id,
+                'user2_id' => $otherUserId,
+                'last_message_at' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Conversation created successfully',
+                'conversation' => [
+                    'id' => $conversation->id,
+                    'user1_id' => $conversation->user1_id,
+                    'user2_id' => $conversation->user2_id,
+                    'created_at' => $conversation->created_at
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create conversation: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function getMessages($conversationId)
     {
         try {

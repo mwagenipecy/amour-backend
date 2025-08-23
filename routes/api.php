@@ -42,6 +42,7 @@ Route::middleware('auth:api')->group(function () {
     
     // Conversations
     Route::get('/conversations', [UserController::class, 'getConversations']);
+    Route::post('/conversations', [UserController::class, 'createConversation']);
     Route::get('/conversations/{conversation}/messages', [UserController::class, 'getMessages']);
     Route::post('/conversations/{conversation}/messages', [UserController::class, 'sendMessage']);
     
