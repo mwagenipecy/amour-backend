@@ -19,7 +19,9 @@ class AuthController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'phone' => 'required|string|max:50|unique:users,phone',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:6',
+            'phone' => 'nullable|string|max:50|unique:users,phone',
             'age' => 'required|integer|min:18|max:100',
             'bio' => 'required|string|min:10',
             'gender' => 'required|string',
@@ -53,6 +55,8 @@ class AuthController extends Controller
             return DB::transaction(function () use ($request) {
                 $user = User::create([
                     'name' => $request->name,
+                    'email' => $request->email,
+                    'password' => bcrypt($request->password),
                     'phone' => $request->phone,
                     'age' => $request->age,
                     'bio' => $request->bio,
@@ -111,12 +115,13 @@ class AuthController extends Controller
     }
 
     /**
-     * Begin login by phone - for OTP flows this can simply acknowledge.
+     * Login with email and password.
      */
     public function login(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'phone' => 'required|string',
+            'email' => 'required|email',
+            'password' => 'required|string|min:6',
         ]);
 
         if ($validator->fails()) {
@@ -127,66 +132,28 @@ class AuthController extends Controller
             ], 422);
         }
 
-        // In a real system, send an SMS OTP. For now, inform about default OTP.
-        $exists = User::where('phone', $request->phone)->exists();
-        if (!$exists) {
+        // Attempt to authenticate user
+        if (Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
+            $user = Auth::user();
+            $token = $user->createToken('AppToken')->accessToken;
+            $user->updateOnlineStatus(true);
+            $user->load(['hobbies', 'interests', 'photos']);
+
             return response()->json([
-                'success' => false,
-                'message' => 'User not found',
-            ], 404);
+                'success' => true,
+                'message' => 'Login successful',
+                'token' => $token,
+                'user' => $user,
+            ]);
         }
 
         return response()->json([
-            'success' => true,
-            'message' => 'OTP sent successfully. Use 111111 for testing.',
-        ]);
+            'success' => false,
+            'message' => 'Invalid credentials',
+        ], 401);
     }
 
-    /**
-     * Verify OTP and issue token.
-     */
-    public function verifyOTP(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'phone' => 'required|string',
-            'otp' => 'required|string',
-        ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        // Default test OTP
-        if ($request->otp !== '111111') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid OTP',
-            ], 400);
-        }
-
-        $user = User::where('phone', $request->phone)->first();
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'User not found',
-            ], 404);
-        }
-
-        $token = $user->createToken('AppToken')->accessToken;
-        $user->updateOnlineStatus(true);
-        $user->load(['hobbies', 'interests', 'photos']);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'OTP verified successfully',
-            'token' => $token,
-            'user' => $user,
-        ]);
-    }
 
     /**
      * Logout current user by revoking token.

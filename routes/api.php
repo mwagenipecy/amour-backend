@@ -24,7 +24,6 @@ Route::get('/health', function () {
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/verify-otp', [AuthController::class, 'verifyOTP']);
 
 // Protected routes
 Route::middleware('auth:api')->group(function () {

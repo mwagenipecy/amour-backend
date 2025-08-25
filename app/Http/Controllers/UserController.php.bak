@@ -21,7 +21,7 @@ class UserController extends Controller
     public function profile($userId = null)
     {
         try {
-            $user = ($userId === "me" || $userId === null) ? Auth::user() : User::findOrFail($userId);
+            $user = $userId ? User::findOrFail($userId) : Auth::user();
             
             if (!$user) {
                 return response()->json([
